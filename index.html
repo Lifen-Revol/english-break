@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>블록 매칭 게임</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      position: relative;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    #korean-word {
+      margin-top: 20px;
+      font-size: 32px;
+    }
+    
+    #feedback {
+      font-size: 80px;
+      font-weight: bold;
+      color: green;
+      position: absolute;
+      top: 100px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 10;
+      display: none;
+    }
+
+    #falling-brick {
+      width: 100px;
+      height: 30px;
+      background-color: red;
+      position: absolute;
+      top: 80px;
+      left: 0;
+      z-index: 5;
+    }
+
+    #options {
+      position: absolute;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+    }
+
+    .word {
+      padding: 12px 24px;
+      border: 2px solid #333;
+      border-radius: 8px;
+      background: #f9f9f9;
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    #score {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      font-size: 20px;
+    }
+
+    #game-clear, #game-fail {
+      font-size: 40px;
+      font-weight: bold;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 20;
+      display: none;
+    }
+
+    #game-clear {
+      color: gold;
+    }
+
+    #game-fail {
+      color: red;
+    }
+
+    #retry-btn {
+      font-size: 20px;
+      padding: 10px 20px;
+      background-color: #333;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      display: none;
+    }
+
+    #retry-btn:hover {
+      background-color: #555;
+    }
+    
+    #start-btn {
+      font-size: 24px;
+      padding: 12px 24px;
+      margin-top: 50px;
+      background-color: #28a745;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+#start-btn:hover {
+  background-color: #218838;
+}
+  </style>
+</head>
+<body>
+
+    <div id="game-fail">실패!</div>
+    <div id="game-clear">게임 클리어!</div>
+    <button id="retry-btn">다시 시도</button>
+    <button id="start-btn">게임 시작</button>
+
+<h1 id="korean-word">의자</h1>
+<div id="feedback">O</div>
+<div id="falling-brick"></div>
+
+<div id="options">
+  <div class="word" id="option0">chair</div>
+  <div class="word" id="option1">apple</div>
+  <div class="word" id="option2">dog</div>
+  <div class="word" id="option3">book</div>
+</div>
+
+<p id="score">점수: 0</p>
+
+<script>
+let score = 0;
+let correctIndex = 0;
+let brickY = 80;
+let brickX = 0;
+let brickFalling = true;
+let brickSpeed = 2;
+let animationId = null;
+let gameStarted = false;
+
+const brick = document.getElementById("falling-brick");
+const gameClear = document.getElementById("game-clear");
+const gameFail = document.getElementById("game-fail");
+const retryBtn = document.getElementById("retry-btn");
+const startBtn = document.getElementById("start-btn");
+
+const wordList = [
+  { korean: "의자", correct: "chair", options: ["apple", "dog", "book"] },
+  { korean: "사과", correct: "apple", options: ["banana", "chair", "pen"] },
+  { korean: "강아지", correct: "dog", options: ["cat", "share", "advance"] },
+  { korean: "책", correct: "book", options: ["pen", "table", "dog"] },
+  { korean: "연필", correct: "pencil", options: ["moment", "eraser", "emotion"] },
+  { korean: "자동차", correct: "car", options: ["bus", "train", "bike"] },
+  { korean: "충고하다", correct: "advise", options: ["situation", "related", "bike"] },
+  { korean: "제품,생산품", correct: "product", options: ["belief", "situation", "book"] },
+  { korean: "증가하다", correct: "increase", options: ["belief", "train", "car"] },
+  { korean: "관련된,친족의", correct: "related", options: ["product", "advise", "school"] },
+  { korean: "호랑이", correct: "tiger", options: ["lion", "dog", "cat"] },
+  { korean: "바나나", correct: "banana", options: ["apple", "orange", "peach"] },
+  { korean: "학교", correct: "school", options: ["classroom", "university", "teacher"] },
+  { korean: "음악", correct: "music", options: ["movie", "music", "dance"] },
+  { korean: "포함하다", correct: "include", options: ["music", "university", "belief"] },
+  { korean: "순간,중요성", correct: "moment", options: ["eraser", "situation", "belief"] },
+  { korean: "개선하다,향상하다", correct: "improve", options: ["related", "increase", "include"] },
+  { korean: "나누다,공유하다", correct: "share", options: ["emotion", "situation", "music"] },
+  { korean: "감정,정서", correct: "emotion", options: ["eraser", "common", "share"] },
+  { korean: "흔한,보통의", correct: "common", options: ["book", "share", "train"] },
+  { korean: "회복하다,복구하다", correct: "recover", options: ["dog", "tiger", "cat"] },
+  { korean: "전진,발전", correct: "advance", options: ["reject", "product", "peach"] },
+  { korean: "거절하다,거부하다", correct: "reject", options: ["common", "increase", " include"] },
+  { korean: "원인이되다,야기하다", correct: "cause", options: ["dog", "school", "orange"] },
+  { korean: "무관심한", correct: "indifferent", options: ["consider", "inferior", "supply"] },
+  { korean: "확실한,확신하는", correct: "certain", options: ["peach", "movie", "consider"] },
+  { korean: "고려하다", correct: "consider", options: ["school", "include", "related"] },
+  { korean: "공급하다,제공하다", correct: "supply", options: ["book", "moment", "tiger"] },
+  { korean: "실용적인,실제적인", correct: "practical", options: ["university", "quantity", "express"] },
+  { korean: "열등한,하위의", correct: "inferior", options: ["emotion", "superior", "select"] },
+  { korean: "뛰어난,우월한", correct: "superior", options: ["bus", "belief", "improve"] },
+  { korean: "희미해지다", correct: "fade", options: ["dog", "increase", "share"] },
+  { korean: "순종하는", correct: "obedient", options: ["banana", "recover", "music"] },
+  { korean: "불법적인", correct: "illegal", options: ["movie", "common", "advise"] },
+];
+
+
+function speak(text) {
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.lang = "en-US";
+  speechSynthesis.speak(utterance);
+}
+
+
+function shuffle(array) {
+  return array.sort(() => Math.random() - 0.5);
+}
+
+function loadNextQuestion() {
+  if (score >= 75) {
+    showGameClear();
+    return;
+  }
+
+  const q = wordList[Math.floor(Math.random() * wordList.length)];
+  document.getElementById("korean-word").innerText = q.korean;
+
+  const allOptions = shuffle([q.correct, ...q.options]);
+  correctIndex = allOptions.indexOf(q.correct);
+
+  for (let i = 0; i < 4; i++) {
+    document.getElementById("option" + i).innerText = allOptions[i];
+  }
+
+  setBrickAboveRandomOption();
+  brickFalling = true;
+}
+
+function setBrickAboveRandomOption() {
+  const randIndex = Math.floor(Math.random() * 4);
+  const el = document.getElementById("option" + randIndex);
+  const elRect = el.getBoundingClientRect();
+  const bodyRect = document.body.getBoundingClientRect();
+
+  brickX = elRect.left - bodyRect.left + el.offsetWidth / 2 - 50;
+  brick.style.left = `${brickX}px`;
+  brickY = 80;
+  brick.style.top = `${brickY}px`;
+}
+
+function showFeedback(correct) {
+  const feedback = document.getElementById("feedback");
+  feedback.style.color = correct ? "green" : "red";
+  feedback.innerText = correct ? "O" : "X";
+  feedback.style.display = "block";
+  setTimeout(() => {
+    feedback.style.display = "none";
+  }, 800);
+}
+
+function showGameClear() {
+  gameClear.style.display = "block";
+  retryBtn.style.display = "block";  // 게임 클리어 후 버튼 보이기
+  setTimeout(() => {
+    gameClear.style.display = "none";
+  }, 2000);
+}
+
+function showGameFail() {
+  gameFail.style.display = "block";
+  retryBtn.style.display = "block";  // 게임 실패 후 버튼 보이기
+  brickFalling = false;
+}
+
+startBtn.addEventListener("click", () => {
+  gameStarted = true;
+  startBtn.style.display = "none";
+  score = 0;
+  document.getElementById("score").innerText = "점수: " + score;
+  loadNextQuestion();
+  animateBrick();
+});
+
+
+// 다시 시도 버튼 클릭 시 게임 리셋
+retryBtn.addEventListener("click", resetGame);
+
+function resetGame() {
+  score = 0;
+  document.getElementById("score").innerText = "점수: " + score;
+  gameClear.style.display = "none";
+  gameFail.style.display = "none";
+  retryBtn.style.display = "none";
+
+  // 블록 상태 초기화
+  brickY = 80;  // 블록의 Y 좌표를 초기값으로 되돌리기
+  brickFalling = true;  // 블록이 떨어지는 상태로 초기화
+  brickSpeed = 2; // 블록 속도 초기화
+
+  // 애니메이션을 초기화합니다.
+  if (animationId) {
+    cancelAnimationFrame(animationId); // 기존 애니메이션 중단
+  }
+
+  // 블록 위치 리셋
+  brick.style.top = `${brickY}px`;
+
+  loadNextQuestion();
+  animationId = requestAnimationFrame(animateBrick); // 새 애니메이션 시작
+}
+
+// 클릭 이벤트 처리
+for (let i = 0; i < 4; i++) {
+  document.getElementById("option" + i).addEventListener("click", () => {
+    if (!brickFalling || score >= 75) return;
+
+    
+    const clickedWord = document.getElementById("option" + i).innerText;
+    speak(clickedWord); // 👈 영어 발음 재생
+
+
+    if (i === correctIndex) {
+      score += 3;
+      showFeedback(true);
+    } else {
+      score -= 2;
+      showFeedback(false);
+    }
+
+    document.getElementById("score").innerText = "점수: " + score;
+
+    // 점수가 -20 이하로 떨어지면 실패 처리
+    if (score <= -20) {
+      showGameFail();
+      return;
+    }
+
+    brickFalling = false;
+    setTimeout(() => {
+      loadNextQuestion();
+    }, 1000);
+  });
+}
+
+function checkDivCollision() {
+  const brickRect = brick.getBoundingClientRect();
+  for (let i = 0; i < 4; i++) {
+    const el = document.getElementById("option" + i);
+    const elRect = el.getBoundingClientRect();
+
+    const overlapX = brickRect.left < elRect.right && brickRect.right > elRect.left;
+    const overlapY = brickRect.bottom > elRect.top && brickRect.top < elRect.bottom;
+
+    if (overlapX && overlapY) {
+      score -= 2;
+      document.getElementById("score").innerText = "점수: " + score;
+
+      if (score <= -20) {
+        showGameFail();
+        return;
+      }
+
+      showFeedback(false);
+      brickFalling = false;
+      setTimeout(() => {
+        loadNextQuestion();
+      }, 1000);
+      return;
+    }
+  }
+}
+
+function animateBrick() {
+  if ( (gameStarted && brickFalling && score < 75) ) {
+    brickY += brickSpeed; // 블록의 속도를 brickSpeed로 조정
+    brick.style.top = `${brickY}px`;
+    checkDivCollision();
+
+    
+    if (brickY > window.innerHeight) {
+      // 실패 조건 추가
+      if (score <= -20) {
+        showGameFail();
+        return;
+      }
+      brickFalling = false;
+      setTimeout(() => {
+        loadNextQuestion();
+      }, 1000);
+    }
+  }
+
+  if (animationId) {
+    cancelAnimationFrame(animationId); 
+}
+
+
+animationId = requestAnimationFrame(animateBrick); // 새 애니메이션 요청
+}
+
+
+loadNextQuestion();
+animateBrick();
+</script>
+
+</body>
+</html>
