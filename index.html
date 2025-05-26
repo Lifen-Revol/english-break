@@ -142,7 +142,13 @@ let correctIndex = 0;
 let brickY = 80;
 let brickX = 0;
 let brickFalling = true;
-let brickSpeed = 2;
+
+function isMobile() {
+  return /Mobi|Android/i.test(navigator.userAgent);
+}
+
+let brickSpeed = Math.max(2, Math.floor(window.innerHeight / 200));
+  
 let animationId = null;
 let gameStarted = false;
 
@@ -285,7 +291,7 @@ function resetGame() {
   // 블록 상태 초기화
   brickY = 80;  // 블록의 Y 좌표를 초기값으로 되돌리기
   brickFalling = true;  // 블록이 떨어지는 상태로 초기화
-  brickSpeed = 2; // 블록 속도 초기화
+ brickSpeed = Math.max(2, Math.floor(window.innerHeight / 200)); // 블록 속도 초기화
 
   // 애니메이션을 초기화합니다.
   if (animationId) {
